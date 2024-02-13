@@ -1,4 +1,4 @@
-use clap::{Command, CommandFactory, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use tracing::debug;
 
 use crate::{
@@ -12,7 +12,8 @@ pub fn execute(session: &mut GameSession, line: &str) -> Result<(), TextError> {
         .ok_or(anyhow::anyhow!("User messed up quotes"))
         .text_error("erroneous quotes")?;
     debug!("Parsed args: {:?}", args);
-    let cli = Cli::try_parse_from(args).text_error("unknown command")?;
+    let cli = Cli::try_parse_from(args)
+        .map_err(|e| TextError::default().set_public_error_message(&e.to_string()))?;
 
     match cli.command {
         Commands::Ping => {
@@ -46,8 +47,7 @@ enum Commands {
     Ping,
     Exit,
     Login {
-        /// Optional. You will be prompted if you don't provide it.
-        #[arg(index = 0)]
+        #[arg(index = 1)]
         token: String,
     },
     Register,

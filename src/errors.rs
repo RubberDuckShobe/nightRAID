@@ -103,6 +103,11 @@ impl<T: std::fmt::Debug, E: Into<AnyhowError> + std::fmt::Debug> IntoTextError<T
 
 impl ToString for TextError {
     fn to_string(&self) -> String {
+        if self.public_error_message().starts_with("error:")
+            || self.public_error_message().starts_with("Usage:")
+        {
+            return self.public_error_message().to_owned() + "\n";
+        }
         "error: ".to_owned() + self.public_error_message() + "\n\n"
     }
 }

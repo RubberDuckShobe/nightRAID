@@ -936,6 +936,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "ezsockets",
+ "serde",
  "shlex",
  "sqlx",
  "tokio",

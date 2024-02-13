@@ -2,6 +2,7 @@ use ezsockets::Server;
 use sqlx::postgres::PgPool;
 
 mod db;
+pub mod errors;
 pub mod game;
 mod ws;
 

@@ -1,64 +1,54 @@
-use clap::Command;
+use clap::{Command, CommandFactory, Parser, Subcommand};
 use tracing::debug;
 
-use crate::ws::GameSession;
+use crate::{
+    errors::{IntoTextError, TextError},
+    ws::GameSession,
+}; // Import the IntoTextError trait
 
-pub fn execute(session: &mut GameSession, line: &str) -> Result<(), ezsockets::Error> {
+pub fn execute(session: &mut GameSession, line: &str) -> Result<(), TextError> {
     debug!("Evaluating command: {}", line);
-    let args = shlex::split(line).ok_or("Invalid quoting")?;
-    let matches = cli().try_get_matches_from(args);
-    if matches.is_err() {
-        session.handle.text("error: invalid command\n\n")?;
-        return Ok(());
-    }
+    let args = shlex::split(line)
+        .ok_or(anyhow::anyhow!("User messed up quotes"))
+        .text_error("erroneous quotes")?;
+    debug!("Parsed args: {:?}", args);
+    let cli = Cli::try_parse_from(args).text_error("unknown command")?;
 
-    match matches?.subcommand() {
-        Some(("ping", _matches)) => {
+    match cli.command {
+        Commands::Ping => {
             session.handle.text("pong\n\n")?;
-            return Ok(());
         }
-        Some(("quit", _matches)) => {
+        Commands::Exit => {
+            session.handle.text("Goodbye.")?;
             session.handle.close(None)?;
-            return Ok(());
         }
-        Some((_, _)) => {
-            session.handle.text("error: unknown command\n\n")?;
+        Commands::Login { token } => {
+            debug!("Username: {:?}", token);
+            session.handle.text("login\n\n")?;
         }
-        None => unreachable!("subcommand required"),
+        Commands::Register => {
+            session.handle.text("register\n\n")?;
+        }
     }
 
     Ok(())
 }
 
-fn cli() -> Command {
-    // strip out usage
-    const PARSER_TEMPLATE: &str = "\
-        {all-args}
-    ";
-    // strip out name/version
-    const APPLET_TEMPLATE: &str = "\
-        {about-with-newline}\n\
-        {usage-heading}\n    {usage}\n\
-        \n\
-        {all-args}{after-help}\
-    ";
+#[derive(Debug, Parser)]
+#[command(multicall = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    Command::new("repl")
-        .multicall(true)
-        .arg_required_else_help(true)
-        .subcommand_required(true)
-        .subcommand_value_name("APPLET")
-        .subcommand_help_heading("APPLETS")
-        .help_template(PARSER_TEMPLATE)
-        .subcommand(
-            Command::new("ping")
-                .about("Ping and you shall be ponged")
-                .help_template(APPLET_TEMPLATE),
-        )
-        .subcommand(
-            Command::new("quit")
-                .alias("exit")
-                .about("Quit the REPL")
-                .help_template(APPLET_TEMPLATE),
-        )
+#[derive(Debug, Subcommand)]
+enum Commands {
+    Ping,
+    Exit,
+    Login {
+        /// Optional. You will be prompted if you don't provide it.
+        #[arg(index = 0)]
+        token: String,
+    },
+    Register,
 }

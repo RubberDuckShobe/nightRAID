@@ -1,14 +1,10 @@
-use async_trait::async_trait;
-use ezsockets::CloseFrame;
-use ezsockets::Error;
-use ezsockets::Request;
-use ezsockets::Socket;
 use std::net::SocketAddr;
-use tracing::debug;
-use tracing::error;
 
-use crate::db;
-use crate::game::commands;
+use async_trait::async_trait;
+use ezsockets::{CloseFrame, Error, Request, Socket};
+use tracing::{debug, error};
+
+use crate::{db, game::commands};
 
 type SessionID = u16;
 type Session = ezsockets::Session<SessionID, ()>;
@@ -46,9 +42,12 @@ impl ezsockets::ServerExt for GameServer {
         );
         let _ = session
             .text(
-                "Welcome to nightRAID.\nPlease register using the \"register\" command.
-If you are already registered, use the \"login\" command.
-If you lost your access token, contact m1nt_.\n\n",
+                "\
+                Welcome to nightRAID.\n\n\
+                Please register using the \"register\" command.\n\
+                If you are already registered, use the \"login\" command.\n\
+                If you lost your access token, contact m1nt_.\n\n\
+                ",
             )
             .map_err(|_| error!("Failed to send welcome message to {}", address));
         Ok(session)
@@ -83,8 +82,11 @@ impl ezsockets::SessionExt for GameSession {
         debug!("received: {}", text);
         let command_result = commands::execute(self, text);
         match command_result {
-            Ok(_response) => return Ok(()),
-            Err(_error) => return Ok(()),
+            Ok(_) => return Ok(()),
+            Err(error) => {
+                self.handle.text(error.to_string())?;
+                return Ok(());
+            }
         };
     }
 

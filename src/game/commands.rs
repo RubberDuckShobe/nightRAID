@@ -12,8 +12,11 @@ pub fn execute(session: &mut GameSession, line: &str) -> Result<(), TextError> {
         .ok_or(anyhow::anyhow!("User messed up quotes"))
         .text_error("erroneous quotes")?;
     debug!("Parsed args: {:?}", args);
-    let cli = Cli::try_parse_from(args)
-        .map_err(|e| TextError::default().set_public_error_message(&e.to_string()))?;
+    let cli = Cli::try_parse_from(args).map_err(|e| {
+        TextError::default()
+            .set_public_error_message(&e.to_string())
+            .set_omit_prefix(true)
+    })?;
 
     match cli.command {
         Commands::Ping => {
@@ -24,7 +27,6 @@ pub fn execute(session: &mut GameSession, line: &str) -> Result<(), TextError> {
             session.handle.close(None)?;
         }
         Commands::Login { token } => {
-            debug!("Username: {:?}", token);
             session.handle.text("login\n\n")?;
         }
         Commands::Register => {
@@ -43,7 +45,8 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
-enum Commands {
+pub enum Commands {
+    #[command(about = "Ping and you shall be ponged.")]
     Ping,
     Exit,
     Login {

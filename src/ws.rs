@@ -2,9 +2,13 @@ use std::net::SocketAddr;
 
 use async_trait::async_trait;
 use ezsockets::{CloseFrame, Error, Request, Socket};
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
-use crate::{db, game::commands};
+use crate::{
+    db,
+    game::{self, commands},
+};
 
 type SessionID = u16;
 type Session = ezsockets::Session<SessionID, ()>;
@@ -19,10 +23,16 @@ pub struct GameSession {
     pub user: Option<db::User>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct ClientMessage {
+    username: String,
+    command: String,
+}
+
 #[async_trait]
 impl ezsockets::ServerExt for GameServer {
     type Session = GameSession;
-    type Call = ();
+    type Call = game::commands::Commands;
 
     async fn on_connect(
         &mut self,
@@ -62,8 +72,6 @@ impl ezsockets::ServerExt for GameServer {
     }
 
     async fn on_call(&mut self, call: Self::Call) -> Result<(), Error> {
-        let () = call;
-        println!("server called");
         Ok(())
     }
 }
@@ -78,9 +86,11 @@ impl ezsockets::SessionExt for GameSession {
     }
 
     async fn on_text(&mut self, text: String) -> Result<(), Error> {
-        let text = text.trim();
-        debug!("received: {}", text);
-        let command_result = commands::execute(self, text);
+        let msg: ClientMessage = serde_json::from_str(&text)?;
+        let command = msg.command.trim();
+        debug!("received: {}", command);
+
+        let command_result = commands::execute(self, command);
         match command_result {
             Ok(_) => return Ok(()),
             Err(error) => {
@@ -91,12 +101,11 @@ impl ezsockets::SessionExt for GameSession {
     }
 
     async fn on_binary(&mut self, _bytes: Vec<u8>) -> Result<(), Error> {
-        unimplemented!()
+        Ok(())
     }
 
     async fn on_call(&mut self, call: Self::Call) -> Result<(), Error> {
         let () = call;
-        self.handle.text("called")?;
         Ok(())
     }
 }

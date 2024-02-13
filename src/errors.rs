@@ -17,6 +17,7 @@ where
     error: Option<AnyhowError>,
     extra_data: Option<Box<S>>,
     public_error_message: Option<String>,
+    omit_prefix: bool,
 }
 
 impl<S, const EXPOSE_INTERNAL_ERROR: bool> TextError<S, EXPOSE_INTERNAL_ERROR>
@@ -41,6 +42,7 @@ where
             extra_data: Some(Box::new(extra_data)),
             error: self.error,
             public_error_message: self.public_error_message,
+            omit_prefix: self.omit_prefix,
         }
     }
 
@@ -60,6 +62,19 @@ where
 
         "AN INTERNAL ERROR OCCURRED! PLEASE CONTACT m1nt_"
     }
+
+    /// Set whether to omit the "error: " prefix when converting to a string.
+    /// This is useful for when the error message is already prefixed or when no prefix is needed.
+    pub fn set_omit_prefix(self, omit_prefix: bool) -> Self {
+        Self {
+            omit_prefix,
+            ..self
+        }
+    }
+
+    pub fn omit_prefix(&self) -> bool {
+        self.omit_prefix
+    }
 }
 
 pub trait IntoTextError<T> {
@@ -75,6 +90,7 @@ where
             error: None,
             extra_data: None,
             public_error_message: None,
+            omit_prefix: false,
         }
     }
 }
@@ -103,9 +119,7 @@ impl<T: std::fmt::Debug, E: Into<AnyhowError> + std::fmt::Debug> IntoTextError<T
 
 impl ToString for TextError {
     fn to_string(&self) -> String {
-        if self.public_error_message().starts_with("error:")
-            || self.public_error_message().starts_with("Usage:")
-        {
+        if self.omit_prefix() {
             return self.public_error_message().to_owned() + "\n";
         }
         "error: ".to_owned() + self.public_error_message() + "\n\n"

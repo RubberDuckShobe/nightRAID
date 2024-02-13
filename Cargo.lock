@@ -937,6 +937,7 @@ dependencies = [
  "dotenvy",
  "ezsockets",
  "serde",
+ "serde_json",
  "shlex",
  "sqlx",
  "tokio",
